@@ -28,7 +28,7 @@ import {
 } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, openReceipt } from '../../api/client'
 import { EmptyState } from '../../components/Page'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -44,12 +44,16 @@ const genderOptions = [
 
 export function GiftClaimPage() {
   const { code } = useParams()
+  const [params] = useSearchParams()
+  const paymentCancelled = params.get('pago') === 'cancelado'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [input, setInput] = useState(code ?? '')
   const [activeCode, setActiveCode] = useState(code ?? '')
   const [claimed, setClaimed] = useState<Registration | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const pendingOrder = params.get('order') ?? ''
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -71,11 +75,37 @@ export function GiftClaimPage() {
     retry: false,
   })
 
+  const isSports = gift?.event?.category === 'sports'
+
   const search = () => {
     if (!input.trim()) return
     setActiveCode(input.trim().toUpperCase())
     setClaimed(null)
     navigate(`/regalos/${input.trim().toUpperCase()}`, { replace: true })
+  }
+
+  const resumePayment = async () => {
+    if (!pendingOrder) return
+    setPaying(true)
+    try {
+      const response = await api.post<{ checkoutUrl?: string }>(
+        `/orders/${encodeURIComponent(pendingOrder)}/pay`,
+        { outcome: 'success' },
+      )
+      if (response.checkoutUrl) {
+        window.location.assign(response.checkoutUrl)
+        return
+      }
+      notifications.show({ color: 'teal', message: 'Pago completado. El regalo ya está disponible.' })
+      queryClient.invalidateQueries({ queryKey: ['gift', activeCode] })
+    } catch (requestError) {
+      notifications.show({
+        color: 'red',
+        message: requestError instanceof Error ? requestError.message : 'No se ha podido reanudar el pago.',
+      })
+    } finally {
+      setPaying(false)
+    }
   }
 
   const claim = async () => {
@@ -97,7 +127,7 @@ export function GiftClaimPage() {
       )
       setClaimed(response.registration)
       queryClient.invalidateQueries({ queryKey: ['gift', activeCode] })
-      notifications.show({ color: 'teal', message: '¡Regalo canjeado! Ya estás inscrito.' })
+      notifications.show({ color: 'teal', message: '¡Regalo canjeado! Ya tienes tu entrada.' })
     } catch (requestError) {
       notifications.show({
         color: 'red',
@@ -116,6 +146,19 @@ export function GiftClaimPage() {
           Introduce el código que recibiste por correo para formalizar tu inscripción.
         </Text>
       </Box>
+
+      {paymentCancelled ? (
+        <Alert color="yellow" icon={<IconAlertCircle size={18} />} title="Pago cancelado">
+          El regalo sigue pendiente de pago.
+          {pendingOrder ? (
+            <Group mt="sm">
+              <Button size="xs" loading={paying} onClick={resumePayment}>
+                Reanudar pago
+              </Button>
+            </Group>
+          ) : null}
+        </Alert>
+      ) : null}
 
       <Paper withBorder radius="lg" p="lg">
         <Group align="flex-end">
@@ -147,7 +190,7 @@ export function GiftClaimPage() {
           <EmptyState
             icon={<IconGift size={40} color="var(--mantine-color-gray-5)" />}
             title="Un regalo te espera"
-            description="Cuando alguien te regala una inscripción recibirás un código por correo."
+            description="Cuando alguien te regala una entrada recibirás un código por correo."
           />
         </Paper>
       ) : null}
@@ -218,9 +261,9 @@ export function GiftClaimPage() {
 
           {gift.status === 'available' && !claimed ? (
             <Paper withBorder radius="lg" p="lg">
-              <Title order={4}>Tus datos de participante</Title>
+              <Title order={4}>Tus datos de asistente</Title>
               <Text size="sm" c="dimmed" mb="md">
-                Completa los datos para generar tu inscripción y tu dorsal.
+                Completa los datos para generar tu inscripción y tu entrada.
               </Text>
               <Stack gap="md">
                 <Grid>
@@ -294,13 +337,15 @@ export function GiftClaimPage() {
                       onChange={(event) => setForm({ ...form, country: event.currentTarget.value })}
                     />
                   </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 6 }}>
-                    <TextInput
-                      label="Club"
-                      value={form.clubName}
-                      onChange={(event) => setForm({ ...form, clubName: event.currentTarget.value })}
-                    />
-                  </Grid.Col>
+                  {isSports ? (
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <TextInput
+                        label="Club"
+                        value={form.clubName}
+                        onChange={(event) => setForm({ ...form, clubName: event.currentTarget.value })}
+                      />
+                    </Grid.Col>
+                  ) : null}
                 </Grid>
 
                 {gift.modality?.dynamicFields?.map((field) => (

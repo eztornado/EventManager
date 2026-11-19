@@ -2,7 +2,7 @@ import { Badge, Box, Card, Group, Progress, Stack, Text } from '@mantine/core'
 import { IconCalendar, IconMapPin, IconUsers } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
 import type { EventItem } from '../types'
-import { formatDate, money } from '../utils/format'
+import { categoryColor, formatDate, money } from '../utils/format'
 import { EventCover } from './EventCover'
 import { StatusBadge } from './StatusBadge'
 
@@ -33,11 +33,9 @@ export function EventCard({ event }: { event: EventItem }) {
       <Stack gap="sm" p="md">
         <Group justify="space-between" gap="xs" wrap="nowrap">
           <StatusBadge status={event.statusLabel ?? event.status} kind="event" />
-          {event.registrationOpen ? (
-            <Badge color="teal" variant="dot" size="sm">
-              Inscripciones abiertas
-            </Badge>
-          ) : null}
+          <Badge color={categoryColor(event.category)} variant="light" size="sm">
+            {event.categoryLabel ?? 'Evento'}
+          </Badge>
         </Group>
         <Box>
           <Group gap={6} wrap="nowrap">
@@ -66,7 +64,7 @@ export function EventCard({ event }: { event: EventItem }) {
           <Group gap={5}>
             <IconUsers size={15} color="var(--mantine-color-gray-6)" />
             <Text size="sm" c="dimmed">
-              {event.registrationCount} inscritos
+              {event.registrationCount} asistentes
             </Text>
           </Group>
         </Group>

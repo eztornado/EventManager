@@ -8,7 +8,8 @@ use larust_support::serde_json::{json, Value};
 use crate::models::{Club, Coupon, EventRow, Modality, PriceTier};
 use crate::services::auth::CurrentUser;
 use crate::services::util::{
-    current_price, normalize_dt, now_iso, random_code, slugify,
+    current_price, event_category_label, normalize_dt, normalize_event_category, now_iso, random_code,
+    slugify,
 };
 use crate::services::ApiError;
 
@@ -206,6 +207,10 @@ async fn event_admin_json(event: &EventRow) -> Result<Value, ApiError> {
     let mut value = serde_json::to_value(event).map_err(ApiError::internal)?;
     if let Some(object) = value.as_object_mut() {
         object.insert("organizer".into(), organizer_json(event.organizer_id).await?);
+        object.insert(
+            "categoryLabel".into(),
+            json!(event_category_label(&event.category)),
+        );
         object.insert("statusLabel".into(), json!(status_label));
         object.insert("registrationCount".into(), json!(count));
         object.insert("paidCount".into(), json!(paid));
@@ -243,6 +248,8 @@ pub async fn create_event(
     if start_date.is_empty() {
         return Err(ApiError::bad_request("La fecha de inicio es obligatoria."));
     }
+    let category = normalize_event_category(&body_str(&body, "category"))
+        .unwrap_or_else(|| "sports".to_string());
     let organizer_id = if user.is_organizer() {
         user.organizer_id
     } else {
@@ -259,15 +266,16 @@ pub async fn create_event(
     )
     .await?;
     let event_id: i64 = sqlx::query_scalar(
-        "INSERT INTO events (organizer_id, name, slug, description, venue, address, city, province,
-         country, cover_image_url, start_date, end_date, registration_deadline, status,
+        "INSERT INTO events (organizer_id, name, slug, category, description, venue, address, city,
+         province, country, cover_image_url, start_date, end_date, registration_deadline, status,
          max_participants, published, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING id",
     )
     .bind(organizer_id)
     .bind(&name)
     .bind(&slug)
+    .bind(&category)
     .bind(body_str(&body, "description"))
     .bind(body_str(&body, "venue"))
     .bind(body_str(&body, "address"))
@@ -328,15 +336,19 @@ pub async fn update_event(
     } else {
         body_i64(&body, "organizerId").or(event.organizer_id)
     };
+    let category = body_opt_str(&body, "category")
+        .and_then(|value| normalize_event_category(&value))
+        .unwrap_or_else(|| event.category.clone());
     sqlx::query(
-        "UPDATE events SET organizer_id = ?, name = ?, slug = ?, description = ?, venue = ?,
-         address = ?, city = ?, province = ?, country = ?, cover_image_url = ?, start_date = ?,
-         end_date = ?, registration_deadline = ?, status = ?, max_participants = ?, published = ?
-         WHERE id = ?",
+        "UPDATE events SET organizer_id = ?, name = ?, slug = ?, category = ?, description = ?,
+         venue = ?, address = ?, city = ?, province = ?, country = ?, cover_image_url = ?,
+         start_date = ?, end_date = ?, registration_deadline = ?, status = ?, max_participants = ?,
+         published = ? WHERE id = ?",
     )
     .bind(organizer_id)
     .bind(&name)
     .bind(&slug)
+    .bind(&category)
     .bind(body_opt_str(&body, "description").unwrap_or_else(|| event.description.clone()))
     .bind(body_opt_str(&body, "venue").unwrap_or_else(|| event.venue.clone()))
     .bind(body_opt_str(&body, "address").unwrap_or_else(|| event.address.clone()))

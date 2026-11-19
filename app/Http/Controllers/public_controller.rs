@@ -9,7 +9,8 @@ use larust_support::serde_json::{json, Value};
 use crate::models::{Coupon, EventRow, Gift, Modality, Order, Registration};
 use crate::services::email;
 use crate::services::util::{
-    current_price, is_valid_email, json_text, normalize_dt, now_iso, parse_json_object, random_code,
+    current_price, event_category_label, is_valid_email, json_text, normalize_dt, now_iso,
+    parse_json_object, random_code, EVENT_CATEGORIES,
 };
 use crate::services::ApiError;
 
@@ -35,6 +36,14 @@ fn event_is_open(event: &EventRow) -> bool {
     }
     let deadline = normalize_dt(&event.registration_deadline, true);
     deadline.is_empty() || deadline >= now_iso()
+}
+
+fn default_payment_method() -> &'static str {
+    if crate::services::payments::is_stripe() {
+        "stripe"
+    } else {
+        "card"
+    }
 }
 
 async fn registration_count(event_id: i64, modality_id: Option<i64>) -> Result<i64, ApiError> {
@@ -128,6 +137,10 @@ async fn event_json(event: &EventRow, detail: bool) -> Result<Value, ApiError> {
         object.insert("registrationCount".into(), json!(count));
         object.insert("spotsLeft".into(), json!(spots_left));
         object.insert("registrationOpen".into(), json!(event_is_open(event)));
+        object.insert(
+            "categoryLabel".into(),
+            json!(event_category_label(&event.category)),
+        );
         object.insert("statusLabel".into(), json!(status_label(event, &modalities)));
         if detail {
             object.insert("modalities".into(), Value::Array(modality_values));
@@ -149,6 +162,7 @@ pub async fn list_events(
     let pool = larust_support::orm::pool()?;
     let search = params.get("search").cloned().unwrap_or_default();
     let province = params.get("province").cloned().unwrap_or_default();
+    let category = params.get("category").cloned().unwrap_or_default();
     let mut events: Vec<EventRow> = sqlx::query_as(
         "SELECT * FROM events WHERE published = 1 AND status != 'Borrador' ORDER BY start_date ASC",
     )
@@ -157,8 +171,10 @@ pub async fn list_events(
     events.retain(|event| {
         (search.is_empty()
             || event.name.to_lowercase().contains(&search.to_lowercase())
-            || event.city.to_lowercase().contains(&search.to_lowercase()))
+            || event.city.to_lowercase().contains(&search.to_lowercase())
+            || event.description.to_lowercase().contains(&search.to_lowercase()))
             && (province.is_empty() || event.province.eq_ignore_ascii_case(&province))
+            && (category.is_empty() || event.category.eq_ignore_ascii_case(&category))
     });
     let mut items = Vec::new();
     for event in &events {
@@ -169,7 +185,25 @@ pub async fn list_events(
     )
     .fetch_all(pool)
     .await?;
-    Ok(Json(json!({ "items": items, "provinces": provinces })))
+    let present_categories: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT category FROM events WHERE published = 1 ORDER BY category",
+    )
+    .fetch_all(pool)
+    .await?;
+    let categories: Vec<Value> = EVENT_CATEGORIES
+        .iter()
+        .filter(|(value, _)| {
+            present_categories
+                .iter()
+                .any(|category| category.eq_ignore_ascii_case(value))
+        })
+        .map(|(value, label)| json!({ "value": value, "label": label }))
+        .collect();
+    Ok(Json(json!({
+        "items": items,
+        "provinces": provinces,
+        "categories": categories
+    })))
 }
 
 pub async fn get_event(Path(slug): Path<String>) -> Result<Json<Value>, ApiError> {
@@ -222,6 +256,11 @@ pub async fn list_clubs() -> Result<Json<Value>, ApiError> {
             .fetch_all(pool)
             .await?;
     Ok(Json(json!(clubs)))
+}
+
+/// Public payment configuration (never exposes secret keys).
+pub async fn payment_config() -> Json<Value> {
+    Json(crate::services::payments::public_config())
 }
 
 pub async fn validate_coupon(Json(body): Json<Value>) -> Result<Json<Value>, ApiError> {
@@ -564,7 +603,7 @@ pub async fn create_registration(Json(body): Json<Value>) -> Result<Json<Value>,
     .bind(&order_code)
     .bind(registration.id)
     .bind(total)
-    .bind(value_as_string(body.get("paymentMethod")))
+    .bind(default_payment_method())
     .bind(format!("{} {}", first_name, last_name))
     .bind(&email)
     .bind(&now)
@@ -754,39 +793,68 @@ pub async fn recover_registration(Json(body): Json<Value>) -> Result<Json<Value>
     })))
 }
 
-pub async fn pay_order(
-    Path(code): Path<String>,
-    Json(body): Json<Value>,
-) -> Result<Json<Value>, ApiError> {
+async fn order_details(order: &Order) -> Result<Value, ApiError> {
     let pool = larust_support::orm::pool()?;
-    let order: Order = sqlx::query_as("SELECT * FROM orders WHERE code = ?")
-        .bind(&code)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| ApiError::not_found("Order not found."))?;
+    if let Some(registration_id) = order.registration_id {
+        let registration: Registration =
+            sqlx::query_as("SELECT * FROM registrations WHERE id = ?")
+                .bind(registration_id)
+                .fetch_one(pool)
+                .await?;
+        let event: EventRow = sqlx::query_as("SELECT * FROM events WHERE id = ?")
+            .bind(registration.event_id)
+            .fetch_one(pool)
+            .await?;
+        let modality: Modality = sqlx::query_as("SELECT * FROM modalities WHERE id = ?")
+            .bind(registration.modality_id)
+            .fetch_one(pool)
+            .await?;
+        return Ok(json!({
+            "order": order,
+            "registration": build_registration_value(&registration, &event, &modality)
+        }));
+    }
+    if let Some(gift_id) = order.gift_id {
+        let gift: Gift = sqlx::query_as("SELECT * FROM gifts WHERE id = ?")
+            .bind(gift_id)
+            .fetch_one(pool)
+            .await?;
+        return Ok(json!({ "order": order, "gift": gift }));
+    }
+    Ok(json!({ "order": order }))
+}
+
+/// Marks an order as paid and updates the linked registration or gift. Safe to
+/// call more than once: completed orders are returned without side effects.
+async fn complete_order(
+    order: &Order,
+    reference: &str,
+    payment_method: &str,
+) -> Result<Value, ApiError> {
     if order.status == "completed" {
-        return Ok(Json(json!({ "order": order, "alreadyPaid": true })));
+        return order_details(order).await;
     }
     if order.status != "pending" {
         return Err(ApiError::conflict("Este pedido ya no se puede pagar."));
     }
-    let outcome = value_as_string(body.get("outcome"));
-    if outcome == "failure" {
-        return Err(ApiError::new(
-            larust_support::axum::http::StatusCode::PAYMENT_REQUIRED,
-            "El pago ha sido rechazado por la pasarela. Puedes intentarlo de nuevo.",
-        ));
-    }
-    let reference = format!("SIM-{}", random_code(10));
+    let pool = larust_support::orm::pool()?;
     let now = now_iso();
-    sqlx::query(
-        "UPDATE orders SET status = 'completed', reference = ?, paid_at = ? WHERE id = ?",
+    let updated = sqlx::query(
+        "UPDATE orders SET status = 'completed', payment_method = ?, reference = ?, paid_at = ? WHERE id = ? AND status = 'pending'",
     )
-    .bind(&reference)
+    .bind(payment_method)
+    .bind(reference)
     .bind(&now)
     .bind(order.id)
     .execute(pool)
     .await?;
+    if updated.rows_affected() == 0 {
+        let current: Order = sqlx::query_as("SELECT * FROM orders WHERE id = ?")
+            .bind(order.id)
+            .fetch_one(pool)
+            .await?;
+        return order_details(&current).await;
+    }
     let order: Order = sqlx::query_as("SELECT * FROM orders WHERE id = ?")
         .bind(order.id)
         .fetch_one(pool)
@@ -818,10 +886,10 @@ pub async fn pay_order(
             .fetch_one(pool)
             .await?;
         email::registration_confirmed(&registration, &event, &modality.name).await?;
-        return Ok(Json(json!({
+        return Ok(json!({
             "order": order,
             "registration": build_registration_value(&registration, &event, &modality)
-        })));
+        }));
     }
 
     if let Some(gift_id) = order.gift_id {
@@ -842,11 +910,219 @@ pub async fn pay_order(
             .fetch_one(pool)
             .await?;
         email::gift_purchased(&gift, &event, &modality.name).await?;
-        return Ok(Json(json!({ "order": order, "gift": gift })));
+        return Ok(json!({ "order": order, "gift": gift }));
     }
 
-    Ok(Json(json!({ "order": order })))
+    Ok(json!({ "order": order }))
 }
+
+/// Describes the purchase behind an order and builds the URLs Stripe returns
+/// the customer to. Those paths depend on whether it is a registration or a
+/// gift, so they are resolved from the database rather than from the client.
+async fn order_context(order: &Order) -> Result<(String, String, String), ApiError> {
+    let pool = larust_support::orm::pool()?;
+    let success = format!("/pago/confirmacion?order={}", order.code);
+    if let Some(registration_id) = order.registration_id {
+        let row: Option<(String, String)> = sqlx::query_as(
+            "SELECT e.name, r.locator FROM registrations r JOIN events e ON e.id = r.event_id WHERE r.id = ?",
+        )
+        .bind(registration_id)
+        .fetch_optional(pool)
+        .await?;
+        if let Some((event_name, locator)) = row {
+            return Ok((
+                format!("Inscripción · {event_name}"),
+                success,
+                format!("/inscripciones?locator={locator}&pago=cancelado"),
+            ));
+        }
+    }
+    if let Some(gift_id) = order.gift_id {
+        let row: Option<(String, String)> = sqlx::query_as(
+            "SELECT e.name, g.code FROM gifts g JOIN events e ON e.id = g.event_id WHERE g.id = ?",
+        )
+        .bind(gift_id)
+        .fetch_optional(pool)
+        .await?;
+        if let Some((event_name, code)) = row {
+            return Ok((
+                format!("Regalo · {event_name}"),
+                success,
+                format!("/regalos/{code}?pago=cancelado&order={}", order.code),
+            ));
+        }
+    }
+    Ok((
+        format!("Pedido {}", order.code),
+        success,
+        "/inscripciones?pago=cancelado".to_string(),
+    ))
+}
+
+pub async fn pay_order(
+    Path(code): Path<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let pool = larust_support::orm::pool()?;
+    let order: Order = sqlx::query_as("SELECT * FROM orders WHERE code = ?")
+        .bind(&code)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| ApiError::not_found("Order not found."))?;
+    if order.status == "completed" {
+        let mut payload = order_details(&order).await?;
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("alreadyPaid".into(), json!(true));
+        }
+        return Ok(Json(payload));
+    }
+    if order.status != "pending" {
+        return Err(ApiError::conflict("Este pedido ya no se puede pagar."));
+    }
+
+    if crate::services::payments::is_stripe() {
+        if order.amount <= 0.0 {
+            let payload = complete_order(&order, &format!("FREE-{}", random_code(10)), "stripe").await?;
+            return Ok(Json(payload));
+        }
+        let (description, success_path, cancel_path) = order_context(&order).await?;
+        let checkout = crate::services::payments::create_checkout(
+            &order.code,
+            order.amount,
+            &description,
+            &order.payer_email,
+            &success_path,
+            &cancel_path,
+        )
+        .await?;
+        sqlx::query(
+            "UPDATE orders SET payment_method = 'stripe', reference = ? WHERE id = ? AND status = 'pending'",
+        )
+        .bind(&checkout.id)
+        .bind(order.id)
+        .execute(pool)
+        .await?;
+        let order: Order = sqlx::query_as("SELECT * FROM orders WHERE id = ?")
+            .bind(order.id)
+            .fetch_one(pool)
+            .await?;
+        return Ok(Json(json!({
+            "provider": "stripe",
+            "checkoutUrl": checkout.url,
+            "order": order
+        })));
+    }
+
+    let outcome = value_as_string(body.get("outcome"));
+    if outcome == "failure" {
+        return Err(ApiError::new(
+            larust_support::axum::http::StatusCode::PAYMENT_REQUIRED,
+            "El pago ha sido rechazado por la pasarela. Puedes intentarlo de nuevo.",
+        ));
+    }
+    let payload = complete_order(&order, &format!("SIM-{}", random_code(10)), "card").await?;
+    Ok(Json(payload))
+}
+
+/// Confirms a Stripe Checkout Session after the customer is redirected back.
+/// Retrieving the session server-side prevents trusting the return URL alone.
+pub async fn confirm_order(
+    Path(code): Path<String>,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let pool = larust_support::orm::pool()?;
+    let order: Order = sqlx::query_as("SELECT * FROM orders WHERE code = ?")
+        .bind(&code)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| ApiError::not_found("Order not found."))?;
+    if order.status == "completed" {
+        let mut payload = order_details(&order).await?;
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("alreadyPaid".into(), json!(true));
+        }
+        return Ok(Json(payload));
+    }
+    if !crate::services::payments::is_stripe() {
+        return Err(ApiError::bad_request(
+            "La pasarela activa no requiere confirmación de Stripe.",
+        ));
+    }
+    let session_id = value_as_string(body.get("sessionId"));
+    if session_id.is_empty() {
+        return Err(ApiError::bad_request("Falta el identificador de la sesión de pago."));
+    }
+    let session = crate::services::payments::retrieve_session(&session_id).await?;
+    if session
+        .metadata
+        .get("orderCode")
+        .is_none_or(|value| value != &order.code)
+    {
+        return Err(ApiError::bad_request(
+            "La sesión de pago no corresponde a este pedido.",
+        ));
+    }
+    if session.payment_status != "paid" && session.payment_status != "no_payment_required" {
+        return Err(ApiError::conflict(
+            "Stripe todavía no ha confirmado el pago de este pedido.",
+        ));
+    }
+    if !order.reference.is_empty() && order.reference != session.id {
+        return Err(ApiError::conflict(
+            "El pedido está asociado a otra sesión de pago.",
+        ));
+    }
+    let payload = complete_order(&order, &session.id, "stripe").await?;
+    Ok(Json(payload))
+}
+
+/// Stripe webhook receiver (checkout.session.completed). Requires
+/// STRIPE_WEBHOOK_SECRET; the signature is verified before touching any order.
+pub async fn stripe_webhook(
+    headers: larust_support::axum::http::HeaderMap,
+    body: larust_support::axum::body::Bytes,
+) -> Result<Json<Value>, ApiError> {
+    let signature = headers
+        .get("stripe-signature")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    crate::services::payments::verify_webhook(&body, signature)?;
+    let event: Value = serde_json::from_slice(&body)
+        .map_err(|_| ApiError::bad_request("El evento de Stripe no es válido."))?;
+    let event_type = event.get("type").and_then(Value::as_str).unwrap_or_default();
+    if event_type != "checkout.session.completed"
+        && event_type != "checkout.session.async_payment_succeeded"
+    {
+        return Ok(Json(json!({ "received": true, "ignored": true })));
+    }
+    let session = event
+        .get("data")
+        .and_then(|data| data.get("object"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let order_code = session
+        .get("metadata")
+        .and_then(|metadata| metadata.get("orderCode"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let session_id = session
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if order_code.is_empty() || session_id.is_empty() {
+        return Ok(Json(json!({ "received": true, "ignored": true })));
+    }
+    let pool = larust_support::orm::pool()?;
+    let order: Option<Order> = sqlx::query_as("SELECT * FROM orders WHERE code = ?")
+        .bind(order_code)
+        .fetch_optional(pool)
+        .await?;
+    if let Some(order) = order {
+        complete_order(&order, session_id, "stripe").await?;
+    }
+    Ok(Json(json!({ "received": true })))
+}
+
 
 pub async fn create_gift(Json(body): Json<Value>) -> Result<Json<Value>, ApiError> {
     let event_id = value_as_i64(body.get("eventId"))
@@ -912,7 +1188,7 @@ pub async fn create_gift(Json(body): Json<Value>) -> Result<Json<Value>, ApiErro
     .bind(&order_code)
     .bind(gift.id)
     .bind(price)
-    .bind(value_as_string(body.get("paymentMethod")))
+    .bind(default_payment_method())
     .bind(&buyer_name)
     .bind(&buyer_email)
     .bind(&now)

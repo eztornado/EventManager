@@ -19,21 +19,32 @@ import { api, toQuery } from '../../api/client'
 import { EventCard } from '../../components/EventCard'
 import { EmptyState } from '../../components/Page'
 import type { EventItem } from '../../types'
+import { categoryColor } from '../../utils/format'
 
 interface EventsResponse {
   items: EventItem[]
   provinces: string[]
+  categories: { value: string; label: string }[]
 }
 
 export function HomePage() {
   const [search, setSearch] = useState('')
   const [province, setProvince] = useState<string | null>(null)
+  const [category, setCategory] = useState<string | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['public-events', search, province],
+    queryKey: ['public-events', search, province, category],
     queryFn: () =>
-      api.get<EventsResponse>(`/events${toQuery({ search, province: province ?? '' })}`),
+      api.get<EventsResponse>(
+        `/events${toQuery({ search, province: province ?? '', category: category ?? '' })}`,
+      ),
   })
+
+  const clearFilters = () => {
+    setSearch('')
+    setProvince(null)
+    setCategory(null)
+  }
 
   return (
     <Box>
@@ -41,26 +52,26 @@ export function HomePage() {
         <Container size="xl">
           <Stack gap="md" maw={720}>
             <Text c="teal.1" fw={700} size="sm" tt="uppercase" style={{ letterSpacing: 2 }}>
-              Deporte, montaña y ciudad
+              Deporte, cultura y ciudad
             </Text>
             <Title order={1} c="white" fz={{ base: 34, sm: 48 }} lh={1.08}>
-              Encuentra tu próxima meta y asegura tu dorsal.
+              Encuentra tu próximo plan y asegura tu entrada.
             </Title>
             <Text c="teal.0" size="lg" maw={620}>
-              Carreras, trailes, marchas y triatlones con inscripción online, gestión de
-              participantes y regalos para quien más te importa.
+              Eventos deportivos, conferencias, conciertos y talleres con inscripción online,
+              gestión de asistentes y regalos para quien más te importa.
             </Text>
             <Group gap="lg" mt="sm">
               <Group gap={6}>
                 <IconTicket size={18} color="var(--mantine-color-teal-2)" />
                 <Text c="white" size="sm">
-                  Inscripción en minutos
+                  Entrada en minutos
                 </Text>
               </Group>
               <Group gap={6}>
                 <IconShieldCheck size={18} color="var(--mantine-color-teal-2)" />
                 <Text c="white" size="sm">
-                  Pago simulado y seguro
+                  Pago seguro online
                 </Text>
               </Group>
               <Group gap={6}>
@@ -96,13 +107,31 @@ export function HomePage() {
             <Button
               variant="light"
               color="gray"
-              onClick={() => {
-                setSearch('')
-                setProvince(null)
-              }}
+              onClick={clearFilters}
             >
               Limpiar
             </Button>
+          </Group>
+          <Group gap={6} mt="sm">
+            <Button
+              size="compact-sm"
+              variant={category === null ? 'filled' : 'light'}
+              color="teal"
+              onClick={() => setCategory(null)}
+            >
+              Todos
+            </Button>
+            {(data?.categories ?? []).map((item) => (
+              <Button
+                key={item.value}
+                size="compact-sm"
+                variant={category === item.value ? 'filled' : 'light'}
+                color={categoryColor(item.value)}
+                onClick={() => setCategory(item.value)}
+              >
+                {item.label}
+              </Button>
+            ))}
           </Group>
         </Paper>
       </Container>
@@ -112,7 +141,7 @@ export function HomePage() {
           <Box>
             <Title order={2}>Próximos eventos</Title>
             <Text c="dimmed" size="sm">
-              Elige tu prueba y consulta las modalidades disponibles.
+              Elige tu evento y consulta las entradas disponibles.
             </Text>
           </Box>
           {data ? (
@@ -156,10 +185,7 @@ export function HomePage() {
               action={
                 <Button
                   variant="light"
-                  onClick={() => {
-                    setSearch('')
-                    setProvince(null)
-                  }}
+                  onClick={clearFilters}
                 >
                   Ver todos los eventos
                 </Button>

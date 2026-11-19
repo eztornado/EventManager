@@ -52,6 +52,8 @@ export interface EventItem {
   organizer: OrganizerRef | null
   name: string
   slug: string
+  category: string
+  categoryLabel?: string
   description: string
   venue: string
   address: string
@@ -287,4 +289,11 @@ export interface CouponValidation {
   price?: number
   total?: number
   coupon?: Coupon
+}
+
+export interface PaymentConfig {
+  provider: 'demo' | 'stripe' | string
+  providerLabel: string
+  currency: string
+  stripeEnabled: boolean
 }

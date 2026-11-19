@@ -19,6 +19,7 @@ pub fn routes() -> Router {
         .get("/events/{slug}", public::get_event)
         .get("/events/{slug}/participants", public::event_participants)
         .get("/clubs", public::list_clubs)
+        .get("/payment/config", public::payment_config)
         .post("/coupons/validate", public::validate_coupon)
         .post("/registrations", public::create_registration)
         .post("/registrations/recover", public::recover_registration)
@@ -30,6 +31,8 @@ pub fn routes() -> Router {
         .get("/gifts/{code}", public::get_gift)
         .post("/gifts/{code}/claim", public::claim_gift)
         .post("/orders/{code}/pay", public::pay_order)
+        .post("/orders/{code}/confirm", public::confirm_order)
+        .post("/stripe/webhook", public::stripe_webhook)
         // --- Backoffice authentication ----------------------------------
         .post("/admin/auth/login", admin_auth::login)
         .get("/admin/auth/me", admin_auth::me)

@@ -9,6 +9,7 @@ struct EventSeed {
     organizer: i64,
     name: &'static str,
     slug: &'static str,
+    category: &'static str,
     description: &'static str,
     venue: &'static str,
     address: &'static str,
@@ -80,6 +81,13 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             "619 000 303",
             "Pruebas multideporte en la costa mediterránea.",
         ),
+        (
+            "Aula Abierta Producciones",
+            "aula-abierta-producciones",
+            "hola@aulaabierta.test",
+            "619 000 404",
+            "Programación de congresos, conciertos y talleres culturales.",
+        ),
     ];
     for (name, slug, email, phone, description) in organizers {
         sqlx::query(
@@ -99,6 +107,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
         (1_i64, "Javier Molina", "javier@horizonte.test"),
         (2, "Lucía Ferrer", "lucia@senderovivo.test"),
         (3, "Diego Navarro", "diego@aventuramed.test"),
+        (4, "Nuria Campos", "nuria@aulaabierta.test"),
     ];
     for (organizer_id, name, email) in accounts {
         sqlx::query(
@@ -142,6 +151,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 1,
             name: "Travesía Sierra Norte",
             slug: "travesia-sierra-norte",
+            category: "sports",
             description: "Una jornada de trail por los bosques y crestas de la Sierra Norte, con recorridos para todos los niveles. Avituallamientos cada 7 km, zona de ludoteca y comida popular al terminar.",
             venue: "Plaza Mayor",
             address: "Plaza Mayor, 1",
@@ -158,6 +168,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 1,
             name: "Maratón Costa Azul",
             slug: "maraton-costa-azul",
+            category: "sports",
             description: "Un maratón rápido y llano junto al mar, con salida al amanecer y animación en cada kilómetro. Incluye medalla, camiseta técnica y acceso a la zona de recuperación.",
             venue: "Paseo Marítimo",
             address: "Paseo Marítimo, s/n",
@@ -174,6 +185,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 2,
             name: "Ultra Valle del Silencio",
             slug: "ultra-valle-del-silencio",
+            category: "sports",
             description: "Travesía de alta montaña con desnivel acumulado y pasos técnicos. Plazas limitadas y material obligatorio. La organización publicará el track definitivo una semana antes.",
             venue: "Campo de Fútbol Municipal",
             address: "Calle del Río, 4",
@@ -190,6 +202,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 3,
             name: "Triatlón Bahía de Cádiz",
             slug: "triatlon-bahia-de-cadiz",
+            category: "sports",
             description: "Triatlón con sectores de natación en aguas abiertas, ciclismo por la bahía y carrera a pie por el casco histórico. Dos distancias y categoría por relevos.",
             venue: "Playa de la Victoria",
             address: "Paseo Marítimo, 20",
@@ -206,7 +219,8 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 2,
             name: "Marcha Solidaria Río Claro",
             slug: "marcha-solidaria-rio-claro",
-            description: "Marcha familiar y no competitiva a favor de proyectos de agua potable. Recorridos de 5 y 10 km, accesibles para carritos y sillas de ruedas. Dorsal solidario y avituallamiento final.",
+            category: "sports",
+            description: "Marcha familiar y no competitiva a favor de proyectos de agua potable. Recorridos de 5 y 10 km, accesibles para carritos y sillas de ruedas. Inscripción solidaria y avituallamiento final.",
             venue: "Parque Fluvial",
             address: "Camino del Río, s/n",
             city: "Cuenca",
@@ -222,6 +236,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 1,
             name: "Gravel Alto Pirineo",
             slug: "gravel-alto-pirineo",
+            category: "sports",
             description: "Ruta gravel por pistas y caminos de montaña con dos distancias y avituallamientos en pueblos del valle. Evento en pausa mientras se confirma la autorización de los pasos de montaña.",
             venue: "Explanada de la Estación",
             address: "Avenida de la Estación, 2",
@@ -238,6 +253,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 3,
             name: "Carrera Nocturna Casco Antiguo",
             slug: "carrera-nocturna-casco-antiguo",
+            category: "sports",
             description: "Carrera urbana de 5 km por las calles iluminadas del casco antiguo. Inscripciones cerradas por aforo completo.",
             venue: "Plaza del Ayuntamiento",
             address: "Plaza del Ayuntamiento, 1",
@@ -254,6 +270,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             organizer: 1,
             name: "Duatlón Parque Central",
             slug: "duatlon-parque-central",
+            category: "sports",
             description: "Duatlón de carretera con transición en el parque central. Las modalidades y precios se publicarán próximamente.",
             venue: "Parque Central",
             address: "Avenida del Parque, 10",
@@ -266,17 +283,69 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             max: Some(500),
             published: true,
         },
+        EventSeed {
+            organizer: 4,
+            name: "Congreso Horizonte Digital",
+            slug: "congreso-horizonte-digital",
+            category: "conference",
+            description: "Dos jornadas sobre producto, datos e inteligencia artificial aplicada. Ponencias, mesas redondas y talleres prácticos con profesionales de distintos sectores. Incluye comida y acceso a las grabaciones.",
+            venue: "Palacio de Congresos",
+            address: "Avenida de la Innovación, 8",
+            city: "Madrid",
+            province: "Madrid",
+            start: "2027-11-12T09:00:00Z",
+            end: "2027-11-13T18:30:00Z",
+            deadline: "2027-11-05T23:59:59Z",
+            status: "Inscripciones abiertas",
+            max: Some(600),
+            published: true,
+        },
+        EventSeed {
+            organizer: 4,
+            name: "Noche de Jazz en el Auditorio",
+            slug: "noche-de-jazz-en-el-auditorio",
+            category: "concert",
+            description: "Una velada con tres formaciones de jazz contemporáneo y una jam session final. Platea y anfiteatro con visibilidad completa, barra y guardarropa incluidos en el recinto.",
+            venue: "Auditorio Municipal",
+            address: "Calle de la Música, 15",
+            city: "Sevilla",
+            province: "Sevilla",
+            start: "2027-06-05T20:30:00Z",
+            end: "2027-06-05T23:30:00Z",
+            deadline: "2027-06-04T23:59:59Z",
+            status: "Inscripciones abiertas",
+            max: Some(900),
+            published: true,
+        },
+        EventSeed {
+            organizer: 2,
+            name: "Taller de Fotografía Urbana",
+            slug: "taller-de-fotografia-urbana",
+            category: "training",
+            description: "Taller práctico de fotografía de calle con una parte teórica y una salida guiada por el centro histórico. Trae tu cámara o utiliza una de las que facilitará la organización.",
+            venue: "Centro Cultural El Puente",
+            address: "Calle del Puente, 3",
+            city: "Cuenca",
+            province: "Cuenca",
+            start: "2027-09-25T10:00:00Z",
+            end: "2027-09-25T18:00:00Z",
+            deadline: "2027-09-20T23:59:59Z",
+            status: "Inscripciones abiertas",
+            max: Some(40),
+            published: true,
+        },
     ];
     for event in &events {
         sqlx::query(
-            "INSERT INTO events (organizer_id, name, slug, description, venue, address, city,
+            "INSERT INTO events (organizer_id, name, slug, category, description, venue, address, city,
              province, country, cover_image_url, start_date, end_date, registration_deadline,
              status, max_participants, published)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'España', '', ?, ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'España', '', ?, ?, ?, ?, ?, ?)",
         )
         .bind(event.organizer)
         .bind(event.name)
         .bind(event.slug)
+        .bind(event.category)
         .bind(event.description)
         .bind(event.venue)
         .bind(event.address)
@@ -310,6 +379,21 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
         { "key": "withPet", "label": "¿Participas con mascota?", "type": "checkbox", "required": false },
         { "key": "accessibility", "label": "Necesidades de accesibilidad", "type": "textarea", "required": false }
     ]);
+    let conference_fields = json!([
+        { "key": "organization", "label": "Empresa u organización", "type": "text", "required": true, "placeholder": "Nombre de tu organización" },
+        { "key": "role", "label": "Cargo", "type": "text", "required": false, "placeholder": "Ej. Product Manager" },
+        { "key": "dietary", "label": "Restricciones alimentarias", "type": "select", "required": false, "options": ["Sin restricciones", "Vegetariano", "Vegano", "Sin gluten", "Sin lactosa"] },
+        { "key": "accessibility", "label": "Necesidades de accesibilidad", "type": "textarea", "required": false }
+    ]);
+    let concert_fields = json!([
+        { "key": "accessibility", "label": "Necesidades de accesibilidad", "type": "textarea", "required": false },
+        { "key": "newsletter", "label": "Quiero recibir novedades de la sala", "type": "checkbox", "required": false }
+    ]);
+    let workshop_fields = json!([
+        { "key": "level", "label": "Nivel de experiencia", "type": "select", "required": true, "options": ["Principiante", "Intermedio", "Avanzado"] },
+        { "key": "camera", "label": "Cámara o equipo que traerás", "type": "text", "required": false, "placeholder": "Modelo o «sin equipo»" },
+        { "key": "accessibility", "label": "Necesidades de accesibilidad", "type": "textarea", "required": false }
+    ]);
 
     let modalities = [
         ModalitySeed { event: 0, name: "Trail 42K", description: "Recorrido largo con 2.100 m de desnivel positivo.", distance: Some(42.0), start_time: "08:00", max: Some(300), price: 55.0, fields: trail_fields.clone() },
@@ -327,6 +411,14 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
         ModalitySeed { event: 5, name: "Gravel 90K", description: "Ruta larga por pistas del pirineo.", distance: Some(90.0), start_time: "07:30", max: Some(300), price: 50.0, fields: road_fields.clone() },
         ModalitySeed { event: 5, name: "Gravel 50K", description: "Ruta corta con menos desnivel.", distance: Some(50.0), start_time: "08:30", max: Some(300), price: 30.0, fields: road_fields.clone() },
         ModalitySeed { event: 6, name: "5K Nocturna", description: "Carrera urbana de 5 km.", distance: Some(5.0), start_time: "20:00", max: Some(800), price: 15.0, fields: road_fields.clone() },
+        ModalitySeed { event: 8, name: "Entrada general", description: "Acceso a las dos jornadas, ponencias y mesas redondas.", distance: None, start_time: "09:00", max: Some(450), price: 90.0, fields: conference_fields.clone() },
+        ModalitySeed { event: 8, name: "Entrada estudiante", description: "Acceso completo con acreditación de estudiante.", distance: None, start_time: "09:00", max: Some(100), price: 45.0, fields: conference_fields.clone() },
+        ModalitySeed { event: 8, name: "Acceso VIP", description: "Acceso completo, talleres exclusivos y cena de networking.", distance: None, start_time: "09:00", max: Some(50), price: 180.0, fields: conference_fields.clone() },
+        ModalitySeed { event: 9, name: "Platea", description: "Butaca numerada en la zona principal del auditorio.", distance: None, start_time: "20:30", max: Some(500), price: 45.0, fields: concert_fields.clone() },
+        ModalitySeed { event: 9, name: "Anfiteatro", description: "Localidad en la zona alta con visión completa del escenario.", distance: None, start_time: "20:30", max: Some(350), price: 28.0, fields: concert_fields.clone() },
+        ModalitySeed { event: 9, name: "VIP con meet & greet", description: "Butaca preferente y encuentro con las formaciones al terminar.", distance: None, start_time: "20:00", max: Some(50), price: 85.0, fields: concert_fields.clone() },
+        ModalitySeed { event: 10, name: "Taller completo", description: "Teoría, salida práctica y revisión de fotografías.", distance: None, start_time: "10:00", max: Some(30), price: 60.0, fields: workshop_fields.clone() },
+        ModalitySeed { event: 10, name: "Solo sesión de tarde", description: "Salida práctica y revisión final de imágenes.", distance: None, start_time: "15:00", max: Some(10), price: 30.0, fields: workshop_fields.clone() },
     ];
     for modality in &modalities {
         let event_id = (modality.event + 1) as i64;
@@ -483,7 +575,16 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
         map
     };
 
-    let plan: [(&i64, usize); 5] = [(&1, 32), (&2, 24), (&3, 15), (&5, 20), (&7, 10)];
+    let plan: [(&i64, usize); 8] = [
+        (&1, 32),
+        (&2, 24),
+        (&3, 15),
+        (&5, 20),
+        (&7, 10),
+        (&9, 18),
+        (&10, 22),
+        (&11, 8),
+    ];
     let mut sequence: usize = 0;
     for (event_id, count) in plan {
         let Some((_, modality_list)) = event_modalities.iter().find(|(id, _)| id == event_id) else {
@@ -518,14 +619,40 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
             let created = now - Duration::days(((sequence * 5) % 29) as i64);
             let created_at = created.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
             let coupon_id = if discount > 0.0 { Some(1_i64) } else { None };
-            let club_name = club_names[sequence % club_names.len()];
+            let club_name = if *event_id >= 9 {
+                ""
+            } else {
+                club_names[sequence % club_names.len()]
+            };
             let shirt_size = ["S", "M", "L", "XL"][sequence % 4];
-            let dynamic = json!({
-                "shirtSize": shirt_size,
-                "emergencyContact": format!("6{:08}", 10000000 + sequence * 37),
-                "experience": (sequence % 12) as i64,
-                "federation": sequence % 2 == 0
-            });
+            let organization = ["Estudio Norte", "Cooperativa Sur", "Agencia Centro", "Universidad del Mar"][sequence % 4];
+            let role = ["Product Manager", "Desarrolladora", "Investigador", "Diseñadora"][sequence % 4];
+            let dietary = ["Sin restricciones", "Vegetariano", "Vegano", "Sin gluten"][sequence % 4];
+            let workshop_level = ["Principiante", "Intermedio", "Avanzado"][sequence % 3];
+            let camera = ["Sin equipo", "Fujifilm X-T5", "Sony A7 III", "Canon R6"][sequence % 4];
+            let dynamic = match *event_id {
+                9 => json!({
+                    "organization": organization,
+                    "role": role,
+                    "dietary": dietary,
+                    "accessibility": ""
+                }),
+                10 => json!({
+                    "accessibility": "",
+                    "newsletter": sequence % 3 == 0
+                }),
+                11 => json!({
+                    "level": workshop_level,
+                    "camera": camera,
+                    "accessibility": ""
+                }),
+                _ => json!({
+                    "shirtSize": shirt_size,
+                    "emergencyContact": format!("6{:08}", 10000000 + sequence * 37),
+                    "experience": (sequence % 12) as i64,
+                    "federation": sequence % 2 == 0
+                }),
+            };
             let registration_id: i64 = sqlx::query_scalar(
                 "INSERT INTO registrations (event_id, modality_id, locator, first_name, last_name,
                  email, phone, birth_date, gender, document_id, province, country, club_id,
@@ -604,7 +731,7 @@ pub async fn run() -> Result<(), crate::services::ApiError> {
 
     // --- A few outbox messages -------------------------------------------
     let messages = [
-        ("ana.vidal@example.test", "Tienes un regalo para Travesía Sierra Norte · REGALO2027", "<p>Ana, Sergio te ha regalado un dorsal. Código: REGALO2027.</p>".to_string()),
+        ("ana.vidal@example.test", "Tienes un regalo para Travesía Sierra Norte · REGALO2027", "<p>Ana, Sergio te ha regalado una inscripción. Código: REGALO2027.</p>".to_string()),
         ("carlos.rueda@example.test", "Inscripción confirmada · Maratón Costa Azul", format!("<p>Tu inscripción está confirmada. Localizador: {}.</p>", claimed_locator)),
         ("javier@horizonte.test", "Resumen semanal de inscripciones", "<p>Resumen automático de las inscripciones de la última semana.</p>".to_string()),
     ];

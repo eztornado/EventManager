@@ -59,6 +59,7 @@ pub struct EventRow {
     pub organizer_id: Option<i64>,
     pub name: String,
     pub slug: String,
+    pub category: String,
     pub description: String,
     pub venue: String,
     pub address: String,

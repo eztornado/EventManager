@@ -15,6 +15,33 @@ pub fn config() -> Value {
 
     config["app_url"] = json!(larust_support::config_env::env_or("APP_URL", "http://localhost"));
 
+    config["frontend_url"] = json!(larust_support::config_env::env_or(
+        "FRONTEND_URL",
+        "http://localhost:8099"
+    ));
+
+    config["payment_provider"] = json!(larust_support::config_env::env_or(
+        "PAYMENT_PROVIDER",
+        "demo"
+    )
+    .to_lowercase());
+
+    config["stripe_secret_key"] = json!(larust_support::config_env::env_or("STRIPE_SECRET_KEY", ""));
+
+    config["stripe_api_base"] = json!(
+        larust_support::config_env::env_or("STRIPE_API_BASE", "https://api.stripe.com/v1")
+            .trim_end_matches('/')
+            .to_string()
+    );
+
+    config["stripe_webhook_secret"] = json!(larust_support::config_env::env_or(
+        "STRIPE_WEBHOOK_SECRET",
+        ""
+    ));
+
+    config["stripe_currency"] = json!(larust_support::config_env::env_or("STRIPE_CURRENCY", "eur")
+        .to_lowercase());
+
     config["api_prefix"] = json!(larust_support::config_env::env_or("API_PREFIX", "/api"));
 
     config["app_locale"] = json!(larust_support::config_env::env_or("APP_LOCALE", "en"));

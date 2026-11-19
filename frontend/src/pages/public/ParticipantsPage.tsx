@@ -84,8 +84,8 @@ export function ParticipantsPage() {
         <Paper withBorder radius="lg" p="xl">
           <EmptyState
             icon={<IconAlertCircle size={40} color="var(--mantine-color-gray-5)" />}
-            title="Participantes no disponibles"
-            description="No hemos podido cargar la lista de participantes de este evento."
+            title="Asistentes no disponibles"
+            description="No hemos podido cargar la lista de asistentes de este evento."
             action={
               <Button component={Link} to="/" variant="light">
                 Volver a eventos
@@ -116,20 +116,20 @@ export function ParticipantsPage() {
           <Box>
             <Group gap="xs">
               <IconUsers size={22} color="var(--mantine-color-teal-7)" />
-              <Title order={2}>Participantes</Title>
+              <Title order={2}>Asistentes</Title>
             </Group>
             <Text c="dimmed" size="sm" mt={4}>
               {data.event.name}
             </Text>
           </Box>
           <Badge size="lg" variant="light" color="teal">
-            {data.items.length} inscritos
+            {data.items.length} asistentes
           </Badge>
         </Group>
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} mt="lg">
           <TextInput
-            label="Buscar participante"
+            label="Buscar asistente"
             placeholder="Nombre, club o modalidad"
             leftSection={<IconSearch size={16} />}
             value={search}
@@ -150,7 +150,7 @@ export function ParticipantsPage() {
         <Paper withBorder radius="lg" p="xl" mt="lg">
           <EmptyState
             icon={<IconUsers size={40} color="var(--mantine-color-gray-5)" />}
-            title="Todavía no hay participantes"
+            title="Todavía no hay asistentes"
             description="Sé la primera persona en inscribirte en este evento."
             action={
               <Button component={Link} to={`/eventos/${data.event.slug}`} variant="light">
@@ -163,7 +163,7 @@ export function ParticipantsPage() {
         <>
           {filtered.length === 0 ? (
             <Alert color="yellow" mt="lg" icon={<IconAlertCircle size={18} />}>
-              No hay participantes que coincidan con los filtros.
+              No hay asistentes que coincidan con los filtros.
             </Alert>
           ) : (
             <Paper withBorder radius="lg" mt="lg" style={{ overflow: 'hidden' }}>
@@ -171,7 +171,7 @@ export function ParticipantsPage() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th w={70}>#</Table.Th>
-                    <Table.Th>Participante</Table.Th>
+                    <Table.Th>Asistente</Table.Th>
                     <Table.Th>Club</Table.Th>
                     <Table.Th>Modalidad</Table.Th>
                   </Table.Tr>
@@ -208,7 +208,7 @@ export function ParticipantsPage() {
 
           <Stack align="center" mt="lg">
             <Text size="xs" c="dimmed" ta="center">
-              Solo se muestran los participantes con inscripción activa. Los datos personales se
+              Solo se muestran los asistentes con inscripción activa. Los datos personales se
               limitan al nombre, club y modalidad.
             </Text>
           </Stack>

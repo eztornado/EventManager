@@ -35,7 +35,7 @@ export function PublicLayout() {
                   EventManager
                 </Text>
                 <Text size="xs" c="dimmed" lh={1.1}>
-                  Inscripciones y dorsales
+                  Eventos y entradas
                 </Text>
               </Box>
             </Group>
@@ -87,8 +87,7 @@ export function PublicLayout() {
               <Box>
                 <Text fw={700}>EventManager</Text>
                 <Text size="sm" c="dimmed" maw={420} mt={4}>
-                  Plataforma de inscripciones, dorsales y regalos para eventos deportivos y
-                  actividades al aire libre.
+                  Plataforma de eventos, inscripciones y regalos para deporte, cultura y ocio.
                 </Text>
               </Box>
               <Text size="xs" c="dimmed">

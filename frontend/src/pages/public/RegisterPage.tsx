@@ -43,6 +43,7 @@ import type {
   EventItem,
   Gift,
   Order,
+  PaymentConfig,
   Registration,
 } from '../../types'
 import { formatDateTime, money } from '../../utils/format'
@@ -112,6 +113,12 @@ export function RegisterPage() {
     queryFn: () => api.get<Club[]>('/clubs'),
   })
 
+  const { data: paymentConfig } = useQuery({
+    queryKey: ['payment-config'],
+    queryFn: () => api.get<PaymentConfig>('/payment/config'),
+  })
+  const stripeEnabled = paymentConfig?.provider === 'stripe'
+
   const moderation = useMemo(() => {
     if (!event?.modalities) return null
     return (
@@ -178,6 +185,8 @@ export function RegisterPage() {
       </Paper>
     )
   }
+
+  const isSports = event.category === 'sports'
 
   const applyCoupon = async () => {
     if (!selected || !couponCode.trim()) return
@@ -285,7 +294,13 @@ export function RegisterPage() {
         registration?: Registration
         gift?: Gift
         alreadyPaid?: boolean
+        checkoutUrl?: string
+        provider?: string
       }>(`/orders/${order.code}/pay`, { outcome: 'success' })
+      if (response.checkoutUrl) {
+        window.location.assign(response.checkoutUrl)
+        return
+      }
       setOrder(response.order)
       if (response.registration) setRegistration(response.registration)
       if (response.gift) setGift(response.gift)
@@ -318,7 +333,13 @@ export function RegisterPage() {
 
       <Group justify="space-between" align="flex-start">
         <Box>
-          <Title order={2}>{giftMode ? 'Regalar una inscripción' : 'Nueva inscripción'}</Title>
+          <Title order={2}>
+            {giftMode
+              ? 'Regalar una entrada'
+              : isSports
+                ? 'Nueva inscripción'
+                : 'Comprar entrada'}
+          </Title>
           <Text c="dimmed" size="sm">
             {event.name} · {formatDateTime(event.startDate)}
           </Text>
@@ -331,9 +352,9 @@ export function RegisterPage() {
       </Group>
 
       <Stepper active={step} onStepClick={(value) => setStep(value)} allowNextStepsSelect={false}>
-        <Stepper.Step label="Datos" description="Participante y modalidad" />
+        <Stepper.Step label="Datos" description={isSports ? 'Participante y modalidad' : 'Asistente y entrada'} />
         <Stepper.Step label="Pago" description="Pasarela segura" />
-        <Stepper.Step label="Confirmación" description="Dorsal y recibo" />
+        <Stepper.Step label="Confirmación" description="Entrada y recibo" />
       </Stepper>
 
       <Grid gutter="xl">
@@ -343,7 +364,7 @@ export function RegisterPage() {
               <Stack gap="md">
                 <Box>
                   <Title order={4} mb="xs">
-                    Modalidad
+                    Entrada
                   </Title>
                   <Select
                     data={event.modalities.map((modality) => ({
@@ -440,7 +461,7 @@ export function RegisterPage() {
                   </Stack>
                 ) : (
                   <Stack gap="md">
-                    <Title order={5}>Datos del participante</Title>
+                    <Title order={5}>{isSports ? 'Datos del participante' : 'Datos del asistente'}</Title>
                     <Grid>
                       <Grid.Col span={{ base: 12, sm: 6 }}>
                         <TextInput
@@ -530,33 +551,37 @@ export function RegisterPage() {
                           }
                         />
                       </Grid.Col>
-                      <Grid.Col span={{ base: 12, sm: 6 }}>
-                        <Select
-                          label="Club"
-                          placeholder="Selecciona tu club"
-                          data={(clubs ?? []).map((club) => ({
-                            value: String(club.id),
-                            label: club.name,
-                          }))}
-                          value={personal.clubId ? String(personal.clubId) : null}
-                          onChange={(value) =>
-                            setPersonal({ ...personal, clubId: value ? Number(value) : null })
-                          }
-                          clearable
-                          searchable
-                        />
-                      </Grid.Col>
-                      <Grid.Col span={{ base: 12, sm: 6 }}>
-                        <TextInput
-                          label="Otro club"
-                          placeholder="Si no aparece en la lista"
-                          value={personal.clubName}
-                          onChange={(input) =>
-                            setPersonal({ ...personal, clubName: input.currentTarget.value })
-                          }
-                          disabled={Boolean(personal.clubId)}
-                        />
-                      </Grid.Col>
+                      {isSports ? (
+                        <>
+                          <Grid.Col span={{ base: 12, sm: 6 }}>
+                            <Select
+                              label="Club"
+                              placeholder="Selecciona tu club"
+                              data={(clubs ?? []).map((club) => ({
+                                value: String(club.id),
+                                label: club.name,
+                              }))}
+                              value={personal.clubId ? String(personal.clubId) : null}
+                              onChange={(value) =>
+                                setPersonal({ ...personal, clubId: value ? Number(value) : null })
+                              }
+                              clearable
+                              searchable
+                            />
+                          </Grid.Col>
+                          <Grid.Col span={{ base: 12, sm: 6 }}>
+                            <TextInput
+                              label="Otro club"
+                              placeholder="Si no aparece en la lista"
+                              value={personal.clubName}
+                              onChange={(input) =>
+                                setPersonal({ ...personal, clubName: input.currentTarget.value })
+                              }
+                              disabled={Boolean(personal.clubId)}
+                            />
+                          </Grid.Col>
+                        </>
+                      ) : null}
                     </Grid>
 
                     {selected?.dynamicFields?.length ? (
@@ -620,41 +645,55 @@ export function RegisterPage() {
 
             {step === 1 && order ? (
               <Stack gap="md">
-                <Alert color="blue" icon={<IconCreditCard size={18} />} title="Pasarela de demostración">
-                  No se realizará ningún cargo real. Los datos de la tarjeta se muestran únicamente
-                  con fines de demostración.
-                </Alert>
-                <Title order={4}>Datos de pago</Title>
-                <Grid>
-                  <Grid.Col span={12}>
-                    <TextInput
-                      label="Titular de la tarjeta"
-                      value={card.holder}
-                      onChange={(input) => setCard({ ...card, holder: input.currentTarget.value })}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={12}>
-                    <TextInput
-                      label="Número de tarjeta"
-                      value={card.number}
-                      onChange={(input) => setCard({ ...card, number: input.currentTarget.value })}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <TextInput
-                      label="Caducidad"
-                      value={card.expiry}
-                      onChange={(input) => setCard({ ...card, expiry: input.currentTarget.value })}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <TextInput
-                      label="CVV"
-                      value={card.cvv}
-                      onChange={(input) => setCard({ ...card, cvv: input.currentTarget.value })}
-                    />
-                  </Grid.Col>
-                </Grid>
+                {stripeEnabled ? (
+                  <Alert color="teal" icon={<IconCreditCard size={18} />} title="Pago seguro con Stripe">
+                    Te redirigiremos a la pasarela de Stripe para completar el pago. Al terminar
+                    volverás aquí para ver tu entrada.
+                  </Alert>
+                ) : (
+                  <Alert color="blue" icon={<IconCreditCard size={18} />} title="Pasarela de demostración">
+                    No se realizará ningún cargo real. Los datos de la tarjeta se muestran únicamente
+                    con fines de demostración.
+                  </Alert>
+                )}
+                <Title order={4}>{stripeEnabled ? 'Resumen del pago' : 'Datos de pago'}</Title>
+                {stripeEnabled ? (
+                  <Text size="sm" c="dimmed">
+                    El importe se cobrará en {paymentConfig?.currency?.toUpperCase() ?? 'EUR'}. Podrás
+                    pagar con tarjeta, Apple Pay o Google Pay según la disponibilidad de Stripe.
+                  </Text>
+                ) : (
+                  <Grid>
+                    <Grid.Col span={12}>
+                      <TextInput
+                        label="Titular de la tarjeta"
+                        value={card.holder}
+                        onChange={(input) => setCard({ ...card, holder: input.currentTarget.value })}
+                      />
+                    </Grid.Col>
+                    <Grid.Col span={12}>
+                      <TextInput
+                        label="Número de tarjeta"
+                        value={card.number}
+                        onChange={(input) => setCard({ ...card, number: input.currentTarget.value })}
+                      />
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <TextInput
+                        label="Caducidad"
+                        value={card.expiry}
+                        onChange={(input) => setCard({ ...card, expiry: input.currentTarget.value })}
+                      />
+                    </Grid.Col>
+                    <Grid.Col span={6}>
+                      <TextInput
+                        label="CVV"
+                        value={card.cvv}
+                        onChange={(input) => setCard({ ...card, cvv: input.currentTarget.value })}
+                      />
+                    </Grid.Col>
+                  </Grid>
+                )}
                 <Divider />
                 <Group justify="space-between">
                   <Text fw={600}>Importe a pagar</Text>
@@ -672,7 +711,7 @@ export function RegisterPage() {
                     loading={paying}
                     onClick={pay}
                   >
-                    Pagar {money(order.amount)}
+                    {stripeEnabled ? 'Pagar con Stripe' : `Pagar ${money(order.amount)}`}
                   </Button>
                 </Group>
               </Stack>
@@ -692,7 +731,9 @@ export function RegisterPage() {
                 >
                   <IconCheck size={36} color="var(--mantine-color-teal-7)" />
                 </Box>
-                <Title order={3}>{giftMode ? '¡Regalo listo!' : '¡Inscripción confirmada!'}</Title>
+                <Title order={3}>
+                  {giftMode ? '¡Regalo listo!' : isSports ? '¡Inscripción confirmada!' : '¡Entrada confirmada!'}
+                </Title>
                 <Text c="dimmed" ta="center" maw={480}>
                   {giftMode
                     ? 'Hemos enviado el código a la persona que recibe el regalo. También puedes compartirlo tú mismo.'
@@ -730,7 +771,7 @@ export function RegisterPage() {
                   <>
                     <Paper withBorder radius="md" p="md" w="100%" maw={420}>
                       <Text size="xs" c="dimmed" ta="center">
-                        Localizador de inscripción
+                        Localizador de la entrada
                       </Text>
                       <Text ta="center" fw={800} fz={26} ff="monospace" style={{ letterSpacing: 4 }}>
                         {registration.locator}
@@ -779,7 +820,7 @@ export function RegisterPage() {
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                  Modalidad
+                  Entrada
                 </Text>
                 <Text size="sm" fw={600}>
                   {selected?.name ?? '—'}

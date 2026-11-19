@@ -48,6 +48,28 @@ export function initials(name: string) {
     .join('')
 }
 
+export function categoryColor(category: string | undefined) {
+  const colors: Record<string, string> = {
+    sports: 'teal',
+    conference: 'blue',
+    concert: 'grape',
+    culture: 'orange',
+    training: 'cyan',
+    other: 'gray',
+  }
+  return colors[category ?? ''] ?? 'gray'
+}
+
+export function paymentMethodLabel(method: string | null | undefined) {
+  if (!method) return '—'
+  const labels: Record<string, string> = {
+    stripe: 'Stripe',
+    card: 'Demostración',
+    demo: 'Demostración',
+  }
+  return labels[method.toLowerCase()] ?? method
+}
+
 export function statusLabel(status: string, kind: 'registration' | 'order' | 'gift' | 'event' | 'coupon' = 'registration') {
   const maps: Record<string, Record<string, string>> = {
     registration: { paid: 'Pagada', pending: 'Pendiente', cancelled: 'Cancelada' },

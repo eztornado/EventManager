@@ -26,6 +26,7 @@ import {
   IconCalendarEvent,
   IconCheck,
   IconCopy,
+  IconCreditCard,
   IconEdit,
   IconMail,
   IconPrinter,
@@ -35,12 +36,12 @@ import {
 } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, openReceipt } from '../../api/client'
 import { EmptyState, SectionCard } from '../../components/Page'
 import { StatusBadge } from '../../components/StatusBadge'
-import type { DynamicField, Registration } from '../../types'
-import { formatDateTime, money } from '../../utils/format'
+import type { DynamicField, Order, PaymentConfig, Registration } from '../../types'
+import { formatDateTime, money, paymentMethodLabel } from '../../utils/format'
 
 const genderOptions = [
   { value: 'Femenino', label: 'Femenino' },
@@ -51,12 +52,21 @@ const genderOptions = [
 
 export function LookupPage() {
   const queryClient = useQueryClient()
-  const [input, setInput] = useState('')
-  const [locator, setLocator] = useState('')
+  const [params] = useSearchParams()
+  const initialLocator = (params.get('locator') ?? '').toUpperCase()
+  const paymentCancelled = params.get('pago') === 'cancelado'
+  const [input, setInput] = useState(initialLocator)
+  const [locator, setLocator] = useState(initialLocator)
   const [email, setEmail] = useState('')
   const [recovering, setRecovering] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [paying, setPaying] = useState(false)
+
+  const { data: paymentConfig } = useQuery({
+    queryKey: ['payment-config'],
+    queryFn: () => api.get<PaymentConfig>('/payment/config'),
+  })
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['registration-lookup', locator],
@@ -150,6 +160,30 @@ export function LookupPage() {
     }
   }
 
+  const payPending = async () => {
+    if (!data?.order) return
+    setPaying(true)
+    try {
+      const response = await api.post<{ order: Order; checkoutUrl?: string }>(
+        `/orders/${encodeURIComponent(data.order.code)}/pay`,
+        { outcome: 'success' },
+      )
+      if (response.checkoutUrl) {
+        window.location.assign(response.checkoutUrl)
+        return
+      }
+      notifications.show({ color: 'teal', message: 'Pago completado correctamente.' })
+      queryClient.invalidateQueries({ queryKey: ['registration-lookup', locator] })
+    } catch (requestError) {
+      notifications.show({
+        color: 'red',
+        message: requestError instanceof Error ? requestError.message : 'No se ha podido iniciar el pago.',
+      })
+    } finally {
+      setPaying(false)
+    }
+  }
+
   return (
     <Stack gap="lg">
       <Box>
@@ -158,6 +192,12 @@ export function LookupPage() {
           Introduce el localizador que recibiste al formalizar la inscripción.
         </Text>
       </Box>
+
+      {paymentCancelled ? (
+        <Alert color="yellow" icon={<IconAlertCircle size={18} />} title="Pago cancelado">
+          No se ha completado el pago con Stripe. Puedes retomarlo desde el pedido cuando quieras.
+        </Alert>
+      ) : null}
 
       <Paper withBorder radius="lg" p="lg">
         <Grid align="flex-end">
@@ -253,7 +293,7 @@ export function LookupPage() {
             </Group>
             <Divider my="md" />
             <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
-              <Info label="Participante" value={`${data.firstName} ${data.lastName}`} />
+              <Info label="Asistente" value={`${data.firstName} ${data.lastName}`} />
               <Info label="Correo" value={data.email} />
               <Info label="Teléfono" value={data.phone || '—'} />
               <Info label="Club" value={data.clubName || '—'} />
@@ -302,7 +342,7 @@ export function LookupPage() {
           </Paper>
 
           {data.modality?.dynamicFields?.length ? (
-            <SectionCard title="Datos de la modalidad">
+            <SectionCard title="Datos de la entrada">
               <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
                 {data.modality.dynamicFields.map((field) => (
                   <Info
@@ -323,9 +363,20 @@ export function LookupPage() {
                 <Info label="Importe" value={money(data.order.amount)} />
                 <Info label="Referencia" value={data.order.reference || '—'} />
                 <Info label="Pagado el" value={formatDateTime(data.order.paidAt)} />
-                <Info label="Método" value={data.order.paymentMethod || 'Tarjeta'} />
+                <Info label="Método" value={paymentMethodLabel(data.order.paymentMethod)} />
                 {data.discount > 0 ? <Info label="Descuento" value={money(data.discount)} /> : null}
               </SimpleGrid>
+              {data.order.status === 'pending' ? (
+                <Group mt="md">
+                  <Button
+                    leftSection={<IconCreditCard size={16} />}
+                    loading={paying}
+                    onClick={payPending}
+                  >
+                    {paymentConfig?.provider === 'stripe' ? 'Pagar con Stripe' : 'Completar pago'}
+                  </Button>
+                </Group>
+              ) : null}
             </SectionCard>
           ) : null}
         </>

@@ -13,6 +13,7 @@ import { toInputDateTime } from '../../utils/format'
 export interface EventFormValue {
   name: string
   slug: string
+  category: string
   organizerId: number | null
   description: string
   venue: string
@@ -36,9 +37,19 @@ export const eventStatuses = [
   'Inscripciones cerradas',
 ]
 
+export const eventCategories = [
+  { value: 'sports', label: 'Deportivo' },
+  { value: 'conference', label: 'Conferencia' },
+  { value: 'concert', label: 'Concierto' },
+  { value: 'culture', label: 'Cultura' },
+  { value: 'training', label: 'Formación' },
+  { value: 'other', label: 'Otro' },
+]
+
 export const emptyEventForm: EventFormValue = {
   name: '',
   slug: '',
+  category: 'sports',
   organizerId: null,
   description: '',
   venue: '',
@@ -59,6 +70,7 @@ export function eventToForm(event: EventItem): EventFormValue {
   return {
     name: event.name,
     slug: event.slug,
+    category: event.category || 'sports',
     organizerId: event.organizerId,
     description: event.description,
     venue: event.venue,
@@ -117,6 +129,16 @@ export function EventFormFields({
           />
         </Grid.Col>
 
+        <Grid.Col span={{ base: 12, sm: 6 }}>
+          <Select
+            label="Categoría"
+            data={eventCategories}
+            value={value.category}
+            onChange={(selected) => onChange({ ...value, category: selected ?? value.category })}
+            allowDeselect={false}
+          />
+        </Grid.Col>
+
         {showOrganizer ? (
           <Grid.Col span={{ base: 12, sm: 6 }}>
             <Select
@@ -136,7 +158,7 @@ export function EventFormFields({
           </Grid.Col>
         ) : null}
 
-        <Grid.Col span={{ base: 12, sm: showOrganizer ? 6 : 12 }}>
+        <Grid.Col span={{ base: 12, sm: 6 }}>
           <Select
             label="Estado"
             data={eventStatuses.map((status) => ({ value: status, label: status }))}
@@ -150,7 +172,7 @@ export function EventFormFields({
           <Textarea
             label="Descripción"
             minRows={3}
-            placeholder="Describe el recorrido, el ambiente y toda la información útil."
+            placeholder="Describe la experiencia, el programa y toda la información útil."
             value={value.description}
             onChange={(event) => onChange({ ...value, description: event.currentTarget.value })}
           />

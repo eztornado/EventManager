@@ -10,6 +10,7 @@ import { ParticipantsPage } from './pages/public/ParticipantsPage'
 import { RegisterPage } from './pages/public/RegisterPage'
 import { LookupPage } from './pages/public/LookupPage'
 import { GiftClaimPage } from './pages/public/GiftClaimPage'
+import { PaymentReturnPage } from './pages/public/PaymentReturnPage'
 import { NotFoundPage } from './pages/public/NotFoundPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { DashboardPage } from './pages/admin/DashboardPage'
@@ -80,6 +81,14 @@ function App() {
           element={
             <PublicContainer>
               <GiftClaimPage />
+            </PublicContainer>
+          }
+        />
+        <Route
+          path="pago/confirmacion"
+          element={
+            <PublicContainer>
+              <PaymentReturnPage />
             </PublicContainer>
           }
         />

@@ -31,6 +31,33 @@ pub fn normalize_dt(value: &str, end_of_day: bool) -> String {
     }
 }
 
+/// Event categories supported by the platform. The stored value stays in
+/// English (stable API/DB key) while the label is user-facing Spanish.
+pub const EVENT_CATEGORIES: [(&str, &str); 6] = [
+    ("sports", "Deportivo"),
+    ("conference", "Conferencia"),
+    ("concert", "Concierto"),
+    ("culture", "Cultura"),
+    ("training", "Formación"),
+    ("other", "Otro"),
+];
+
+pub fn event_category_label(value: &str) -> String {
+    EVENT_CATEGORIES
+        .iter()
+        .find(|(key, _)| key.eq_ignore_ascii_case(value))
+        .map(|(_, label)| (*label).to_string())
+        .unwrap_or_else(|| "Otro".to_string())
+}
+
+/// Returns the canonical category key, or `None` when the value is unknown.
+pub fn normalize_event_category(value: &str) -> Option<String> {
+    EVENT_CATEGORIES
+        .iter()
+        .find(|(key, _)| key.eq_ignore_ascii_case(value.trim()))
+        .map(|(key, _)| (*key).to_string())
+}
+
 pub fn random_code(len: usize) -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)

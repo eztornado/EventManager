@@ -439,7 +439,7 @@ export function EventEditPage() {
 
       <PageHeader
         title={event.name}
-        subtitle={`${formatDate(event.startDate)} · ${event.venue || event.city || 'Sin ubicación'}`}
+        subtitle={`${event.categoryLabel ?? 'Evento'} · ${formatDate(event.startDate)} · ${event.venue || event.city || 'Sin ubicación'}`}
         actions={
           <>
             <Button

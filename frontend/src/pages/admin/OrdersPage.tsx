@@ -18,8 +18,8 @@ import { useQuery } from '@tanstack/react-query'
 import { api, toQuery } from '../../api/client'
 import { EmptyState, PageHeader, SectionCard } from '../../components/Page'
 import { StatusBadge } from '../../components/StatusBadge'
-import type { Order } from '../../types'
-import { formatDateTime, money } from '../../utils/format'
+import type { Order, PaymentConfig } from '../../types'
+import { formatDateTime, money, paymentMethodLabel } from '../../utils/format'
 
 const statusOptions = [
   { value: 'completed', label: 'Completado' },
@@ -36,6 +36,11 @@ export function OrdersPage() {
   const { data: orders, isLoading } = useQuery({
     queryKey: ['admin-orders', query],
     queryFn: () => api.get<Order[]>(`/admin/orders${query}`),
+  })
+
+  const { data: paymentConfig } = useQuery({
+    queryKey: ['payment-config'],
+    queryFn: () => api.get<PaymentConfig>('/payment/config'),
   })
 
   const totals = useMemo(() => {
@@ -176,7 +181,7 @@ export function OrdersPage() {
                         {money(order.amount)}
                       </Text>
                       <Text size="xs" c="dimmed">
-                        {order.paymentMethod || 'card'}
+                        {paymentMethodLabel(order.paymentMethod)}
                       </Text>
                     </Table.Td>
                     <Table.Td>
@@ -198,9 +203,10 @@ export function OrdersPage() {
       )}
 
       <Text size="xs" c="dimmed">
-        Los pagos se procesan mediante la pasarela de demostración. No se realizan cargos reales.
-        Los códigos de pedido pueden verificarse desde{' '}
-        <Code>orders</Code>.
+        {paymentConfig?.provider === 'stripe'
+          ? 'Los pagos se procesan mediante Stripe Checkout. Los pedidos pendientes pueden retomarse desde la consulta pública.'
+          : 'Los pagos se procesan mediante la pasarela de demostración. No se realizan cargos reales.'}{' '}
+        Los códigos de pedido pueden verificarse desde <Code>orders</Code>.
       </Text>
     </Stack>
   )

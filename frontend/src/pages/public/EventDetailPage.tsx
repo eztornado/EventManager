@@ -30,7 +30,7 @@ import { EventCover } from '../../components/EventCover'
 import { EmptyState } from '../../components/Page'
 import { StatusBadge } from '../../components/StatusBadge'
 import type { EventItem } from '../../types'
-import { formatDate, formatDateTime, money } from '../../utils/format'
+import { categoryColor, formatDate, formatDateTime, money } from '../../utils/format'
 
 export function EventDetailPage() {
   const { slug } = useParams()
@@ -100,9 +100,12 @@ export function EventDetailPage() {
             <Box>
               <Group gap="sm" mb="xs">
                 <StatusBadge status={event.statusLabel ?? event.status} kind="event" size="md" />
+                <Badge color={categoryColor(event.category)} variant="light" size="md">
+                  {event.categoryLabel ?? 'Evento'}
+                </Badge>
                 {event.modalityCount > 0 ? (
                   <Badge variant="light" color="gray">
-                    {event.modalityCount} modalidade{event.modalityCount === 1 ? '' : 's'}
+                    {event.modalityCount} entrada{event.modalityCount === 1 ? '' : 's'}
                   </Badge>
                 ) : null}
               </Group>
@@ -141,7 +144,7 @@ export function EventDetailPage() {
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 6 }}>
                   <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-                    Salida
+                    Inicio
                   </Text>
                   <Text fw={600}>{formatDateTime(event.startDate)}</Text>
                 </Grid.Col>
@@ -174,7 +177,7 @@ export function EventDetailPage() {
 
             <Box>
               <Group justify="space-between" mb="sm">
-                <Title order={3}>Modalidades</Title>
+                <Title order={3}>Entradas</Title>
                 <Button
                   component={Link}
                   to={`/eventos/${event.slug}/participantes`}
@@ -182,14 +185,14 @@ export function EventDetailPage() {
                   size="sm"
                   leftSection={<IconUsers size={16} />}
                 >
-                  Ver participantes
+                  Ver asistentes
                 </Button>
               </Group>
 
               {!event.modalities || event.modalities.length === 0 ? (
                 <Paper withBorder radius="lg" p="lg">
                   <Text c="dimmed" size="sm">
-                    Las modalidades de este evento se publicarán próximamente.
+                    Las entradas de este evento se publicarán próximamente.
                   </Text>
                 </Paper>
               ) : (
@@ -216,7 +219,7 @@ export function EventDetailPage() {
                               <Group gap={4}>
                                 <IconClock size={15} color="var(--mantine-color-gray-6)" />
                                 <Text size="xs" c="dimmed">
-                                  Salida {modality.startTime}
+                                  Inicio {modality.startTime}
                                 </Text>
                               </Group>
                             ) : null}
@@ -225,7 +228,7 @@ export function EventDetailPage() {
                               <Text size="xs" c="dimmed">
                                 {modality.spotsLeft !== null
                                   ? `${modality.spotsLeft} plazas disponibles`
-                                  : `${modality.registrationCount} inscritos`}
+                                  : `${modality.registrationCount} asistentes`}
                               </Text>
                             </Group>
                           </Group>
@@ -252,7 +255,7 @@ export function EventDetailPage() {
                                 )
                               }
                             >
-                              Inscribirme
+                              Comprar entrada
                             </Button>
                             <Button
                               size="sm"
@@ -266,7 +269,7 @@ export function EventDetailPage() {
                                 )
                               }
                             >
-                              Regalar
+                              Regalar entrada
                             </Button>
                           </Group>
                         </Stack>
@@ -281,14 +284,14 @@ export function EventDetailPage() {
 
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Paper withBorder radius="lg" p="lg" style={{ position: 'sticky', top: 88 }}>
-            <Title order={4}>Inscripción</Title>
+            <Title order={4}>Entradas</Title>
             <Stack gap="sm" mt="sm">
               {event.registrationDeadline ? (
                 <Group gap={8} align="flex-start" wrap="nowrap">
                   <IconCalendarEvent size={18} color="var(--mantine-color-teal-7)" />
                   <Box>
                     <Text size="xs" c="dimmed">
-                      Plazo de inscripción
+                      Plazo de venta
                     </Text>
                     <Text size="sm" fw={600}>
                       {formatDateTime(event.registrationDeadline)}
@@ -345,13 +348,13 @@ export function EventDetailPage() {
                   }
                 }}
               >
-                Inscribirme ahora
+                Comprar entrada
               </Button>
             )}
 
             <Divider my="md" />
             <Text size="sm" c="dimmed" ta="center">
-              ¿Ya te has inscrito?{' '}
+              ¿Ya tienes tu entrada?{' '}
               <Text component={Link} to="/inscripciones" c="teal.7" fw={600} span>
                 Consulta tu inscripción
               </Text>

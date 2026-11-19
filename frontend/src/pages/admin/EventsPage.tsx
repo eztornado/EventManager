@@ -35,7 +35,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, PageHeader, SectionCard } from '../../components/Page'
 import { StatusBadge } from '../../components/StatusBadge'
 import type { EventItem, Organizer } from '../../types'
-import { formatDate, money } from '../../utils/format'
+import { categoryColor, formatDate, money } from '../../utils/format'
 import {
   EventFormFields,
   emptyEventForm,
@@ -230,11 +230,16 @@ export function EventsPage() {
                           {formatDate(event.startDate)}
                           {event.city ? ` · ${event.city}` : ''}
                         </Text>
-                        {!event.published ? (
-                          <Badge size="xs" color="gray" variant="light" mt={4}>
-                            No publicado
+                        <Group gap={4} mt={4}>
+                          <Badge size="xs" color={categoryColor(event.category)} variant="light">
+                            {event.categoryLabel ?? 'Evento'}
                           </Badge>
-                        ) : null}
+                          {!event.published ? (
+                            <Badge size="xs" color="gray" variant="light">
+                              No publicado
+                            </Badge>
+                          ) : null}
+                        </Group>
                       </Table.Td>
                       {!isOrganizer ? (
                         <Table.Td>
