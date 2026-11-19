@@ -1,0 +1,46 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--mantine-color-gray-0);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+.hero-pattern {
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.16) 0, transparent 32%),
+    radial-gradient(circle at 85% 10%, rgba(255, 255, 255, 0.12) 0, transparent 28%),
+    linear-gradient(135deg, #134e4a 0%, #0f766e 45%, #0d9488 100%);
+}
+
+.event-cover {
+  background:
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.28), transparent 40%),
+    linear-gradient(135deg, var(--cover-from, #0f766e), var(--cover-to, #14b8a6));
+}
+
+.text-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.text-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+}

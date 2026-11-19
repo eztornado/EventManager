@@ -1,0 +1,7 @@
+/target
+.env
+.env.local
+/database/*.sqlite
+/database/*.sqlite-*
+/storage/logs
+/storage/releases
