@@ -5,20 +5,26 @@ services:
       dockerfile: Dockerfile
     image: eventmanager:latest
     restart: unless-stopped
-    ports:
-      - "${PUBLISHED_PORT:-8080}:8080"
+    # Coolify's proxy (Traefik) reaches the container over the internal Docker
+    # network, so we do not publish a host port (avoids "port is already
+    # allocated" when 8080 is taken on the server). Local testing: run with
+    # `docker run -p 8080:8080 ...` (see README) or add an override file.
+    expose:
+      - "8080"
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_HOST: 0.0.0.0
       APP_PORT: "8080"
       PORT: "8080"
-      APP_URL: http://localhost:${PUBLISHED_PORT:-8080}
-      FRONTEND_URL: http://localhost:${PUBLISHED_PORT:-8080}
+      # Public URLs come from the environment (set APP_URL/FRONTEND_URL in
+      # Coolify to https://<your-domain>); these fallbacks only serve local runs.
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
       DB_CONNECTION: sqlite
       DB_DATABASE: storage/database.sqlite
       LOG_CHANNEL: stdout
-      SESSION_SECURE_COOKIE: "false"
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-false}
       JWT_SECRET: ${JWT_SECRET:-eventmanager-compose-development-secret}
       MAIL_DRIVER: log
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-demo}

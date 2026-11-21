@@ -99,7 +99,14 @@ ADMIN_PASSWORD=una-clave-segura \
 docker compose up -d --build
 ```
 
-The compose file is intended for local testing (`http://localhost` URLs, volume, and port 8080). For Coolify, use the `Dockerfile` and set the public URLs as environment variables.
+The compose file does not publish a host port (Coolify's proxy routes to the container over the internal Docker network). To browse it locally, expose port 8080 with an override file:
+
+```bash
+printf 'services:\n  eventmanager:\n    ports: ["8080:8080"]\n' > docker-compose.override.yml
+docker compose up -d --build
+```
+
+For Coolify, deploy the repository's compose file as-is and set the public URLs as environment variables.
 
 #### Coolify
 
@@ -359,7 +366,14 @@ ADMIN_PASSWORD=una-clave-segura \
 docker compose up -d --build
 ```
 
-El compose está pensado para pruebas locales (URLs `http://localhost`, volumen y puerto 8080). Para Coolify usa el `Dockerfile` y define las URLs públicas como variables de entorno.
+El compose no publica puerto en el host (el proxy de Coolify enruta al contenedor por la red interna de Docker). Para verlo en local, expón el 8080 con un fichero de override:
+
+```bash
+printf 'services:\n  eventmanager:\n    ports: ["8080:8080"]\n' > docker-compose.override.yml
+docker compose up -d --build
+```
+
+Para Coolify despliega el compose del repositorio tal cual y define las URLs públicas como variables de entorno.
 
 #### Coolify
 
@@ -619,7 +633,14 @@ ADMIN_PASSWORD=una-clave-segura \
 docker compose up -d --build
 ```
 
-Compose ファイルはローカルテスト用です（`http://localhost` のURL、ボリューム、ポート8080）。Coolifyでは `Dockerfile` を使用し、公開URLを環境変数で設定してください。
+Composeファイルはホストポートを公開しません（CoolifyのプロキシはDocker内部ネットワーク経由でコンテナに到達します）。ローカルで確認するには、オーバーライドファイルでポート8080を公開してください：
+
+```bash
+printf 'services:\n  eventmanager:\n    ports: ["8080:8080"]\n' > docker-compose.override.yml
+docker compose up -d --build
+```
+
+CoolifyではリポジトリのComposeファイルをそのままデプロイし、公開URLを環境変数で設定してください。
 
 #### Coolify
 
