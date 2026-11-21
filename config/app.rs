@@ -7,7 +7,20 @@ pub fn config() -> Value {
 
     config["app_env"] = json!(larust_support::config_env::env_or("APP_ENV", "local"));
 
-    config["app_port"] = json!(larust_support::config_env::app_port_or(34187));
+    // Platforms such as Coolify inject PORT; local development keeps using
+    // APP_PORT (or the port embedded in APP_URL).
+    let platform_port = larust_support::config_env::env_or("PORT", "");
+    let app_port = if platform_port.is_empty() {
+        larust_support::config_env::app_port_or(34187)
+    } else {
+        platform_port.parse::<u16>().unwrap_or(34187)
+    };
+    config["app_port"] = json!(app_port);
+
+    config["app_host"] = json!(larust_support::config_env::env_or(
+        "APP_HOST",
+        "127.0.0.1"
+    ));
 
     config["session_secure_cookie"] = json!(larust_support::config_env::env_bool("SESSION_SECURE_COOKIE", true));
 

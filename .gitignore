@@ -4,4 +4,6 @@
 /database/*.sqlite
 /database/*.sqlite-*
 /storage/logs
+/storage/*.sqlite
+/storage/*.sqlite-*
 /storage/releases

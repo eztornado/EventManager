@@ -46,6 +46,14 @@ pub fn port() -> u16 {
         .unwrap_or(8080)
 }
 
+pub fn host() -> String {
+    config::app::config()["app_host"]
+        .as_str()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("127.0.0.1")
+        .to_string()
+}
+
 pub fn application() -> Result<larust_core::Application, larust_core::AppError> {
     let app = larust_core::Application::at_root(
         larust_core::resolve_app_root(env!("CARGO_MANIFEST_DIR")),
@@ -92,7 +100,20 @@ pub async fn serve() -> Result<(), larust_core::AppError> {
 
     // `Application::serve()` installs its own `public/` fallback, so mount the
     // fully composed router ourselves to keep the SPA fallback in place.
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port()));
+    let address = host();
+    let ip = address
+        .parse::<std::net::IpAddr>()
+        .unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
+    let addr = std::net::SocketAddr::new(ip, port());
+    if app.config().app_env == "production"
+        && std::env::var("JWT_SECRET")
+            .map(|value| value.trim().len() < 32)
+            .unwrap_or(true)
+    {
+        tracing::warn!(
+            "JWT_SECRET is missing or too short; configure a random value of at least 32 characters in production"
+        );
+    }
     tracing::info!(%addr, app = %app.config().app_name, env = %app.config().app_env, "starting server");
     let listener = tokio::net::TcpListener::bind(addr)
         .await

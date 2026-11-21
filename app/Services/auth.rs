@@ -70,9 +70,12 @@ struct Claims {
 }
 
 fn secret() -> String {
-    std::env::var("JWT_SECRET").unwrap_or_else(|_| {
-        "eventmanager-development-secret-change-me-in-production".to_string()
-    })
+    std::env::var("JWT_SECRET")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            "eventmanager-development-secret-change-me-in-production".to_string()
+        })
 }
 
 pub fn issue_token(id: i64, role: &str, organizer_id: Option<i64>) -> Result<String, ApiError> {

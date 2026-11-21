@@ -9,6 +9,7 @@ Plataforma de eventos e inscripciones: tienda pública para asistentes y backoff
 - **Autenticación:** JWT con roles `superadmin`, `admin` y `organizer`.
 - **Correo:** bandeja de salida interna (no se envía correo real).
 - **Pagos:** pasarela simulada para desarrollo o Stripe Checkout con cargos reales.
+- **Despliegue:** imagen Docker multi-stage lista para Coolify, con SQLite persistente y migraciones automáticas.
 
 ## Requisitos
 
@@ -56,9 +57,92 @@ cargo run -- migrate            # aplica migraciones pendientes
 cargo run -- migrate:fresh      # recrea el esquema
 cargo run -- migrate:fresh --seed
 cargo run -- db:seed            # vuelve a cargar los datos demo
+cargo run -- admin:create       # crea un superadmin con ADMIN_NAME/EMAIL/PASSWORD
 cargo run -- route:list         # lista las rutas registradas
 cd frontend && npm run build    # comprobación TypeScript + build de producción
 ```
+
+## Despliegue con Docker y Coolify
+
+El repositorio incluye un `Dockerfile` multi-stage que compila el frontend y el backend, sirve el SPA desde el propio binario y arranca como usuario sin privilegios. También incluye `docker-compose.yml` para pruebas locales.
+
+### Docker local
+
+```bash
+docker build -t eventmanager .
+
+docker run -d --name eventmanager \
+  -p 8080:8080 \
+  -e APP_URL=http://localhost:8080 \
+  -e FRONTEND_URL=http://localhost:8080 \
+  -e ADMIN_NAME=Administrador \
+  -e ADMIN_EMAIL=admin@example.test \
+  -e ADMIN_PASSWORD=una-clave-segura \
+  -e JWT_SECRET=una-cadena-aleatoria-de-32-caracteres \
+  -v eventmanager-storage:/app/storage \
+  eventmanager
+```
+
+Abre <http://localhost:8080>. El entrypoint aplica las migraciones y, si `ADMIN_EMAIL` y `ADMIN_PASSWORD` están definidos, crea el primer superadmin. Si el correo ya existe, no modifica su contraseña.
+
+Con Compose:
+
+```bash
+ADMIN_EMAIL=admin@example.test \
+ADMIN_PASSWORD=una-clave-segura \
+docker compose up -d --build
+```
+
+El compose está pensado para pruebas locales (URLs `http://localhost`, volumen y puerto 8080). Para Coolify usa el `Dockerfile` y define las URLs públicas como variables de entorno.
+
+### Coolify
+
+1. Crea un recurso desde el repositorio y elige **Dockerfile** como build pack (no Compose). Puerto expuesto: `8080`.
+2. Añade un volumen persistente para la base de datos: monta **`/app/storage`**. No montes `/app` ni `/app/database`: ahí viven el binario, el SPA y las migraciones.
+3. Configura las variables de entorno:
+
+   ```env
+   APP_ENV=production
+   APP_DEBUG=false
+   APP_HOST=0.0.0.0
+   APP_PORT=8080
+   APP_URL=https://tu-dominio.example
+   FRONTEND_URL=https://tu-dominio.example
+   SESSION_SECURE_COOKIE=true
+   DB_CONNECTION=sqlite
+   DB_DATABASE=storage/database.sqlite
+   LOG_CHANNEL=stdout
+   JWT_SECRET=una-cadena-aleatoria-de-32-caracteres
+   PAYMENT_PROVIDER=demo
+   ADMIN_NAME=Administrador
+   ADMIN_EMAIL=admin@tu-dominio.example
+   ADMIN_PASSWORD=una-clave-segura
+   ```
+
+   Para cargar los datos de demostración en una instalación nueva, añade `SEED_DEMO_DATA=true` en el primer despliegue. El seeder se salta bases de datos que ya tienen usuarios, así que puedes dejarlo o quitarlo después.
+
+4. Despliega. En los logs verás las migraciones, la creación del administrador y el arranque en `0.0.0.0:8080`. El healthcheck de la imagen consulta `/api/health`.
+5. En Stripe, configura el webhook en `https://tu-dominio.example/api/stripe/webhook`.
+
+La base de datos SQLite queda en `/app/storage/database.sqlite` dentro del volumen. Para copias de seguridad, copia ese archivo o el volumen completo; para una copia consistente con SQLite en modo WAL, detén el contenedor o usa `sqlite3 database.sqlite ".backup copia.sqlite"`. Mantén una sola réplica del contenedor: SQLite no está pensado para varios procesos escribiendo sobre el mismo volumen.
+
+### Variables relevantes en producción
+
+| Variable | Valor recomendado |
+| --- | --- |
+| `APP_ENV` | `production` |
+| `APP_DEBUG` | `false` |
+| `APP_HOST` / `APP_PORT` | `0.0.0.0` / `8080` (o el `PORT` que inyecte la plataforma) |
+| `APP_URL` / `FRONTEND_URL` | URL pública con `https://` |
+| `SESSION_SECURE_COOKIE` | `true` con HTTPS |
+| `DB_DATABASE` | `storage/database.sqlite` |
+| `LOG_CHANNEL` | `stdout` |
+| `JWT_SECRET` | Cadena aleatoria de 32+ caracteres |
+| `ADMIN_*` | Solo en el primer despliegue, para crear el superadmin |
+| `SEED_DEMO_DATA` | `false` en producción |
+| `PAYMENT_PROVIDER` | `demo` o `stripe` |
+
+El contenedor arranca como root únicamente para ajustar los permisos del volumen y después ejecuta la aplicación como el usuario `eventmanager` (UID 10001).
 
 ## Cuentas de demostración
 
@@ -111,6 +195,8 @@ config/                 configuración de Larust
 database/
   migrations/           esquema SQLite
   seeders/              datos de demostración
+docker/
+  entrypoint.sh         migraciones, administrador inicial y arranque
 frontend/
   src/
     api/                cliente HTTP y descarga de CSV
@@ -124,11 +210,13 @@ routes/
 src/
   lib.rs                arranque, base de datos y servido del SPA
   main.rs               comandos de consola y entrada del servidor
+Dockerfile              build multi-stage de frontend + backend
+docker-compose.yml      despliegue local con volumen persistente
 ```
 
 ## Notas de implementación
 
-- La base de datos por defecto es `database/database.sqlite`; puede cambiarse con `DB_CONNECTION` y `DB_DATABASE`.
+- La base de datos por defecto es `database/database.sqlite`; puede cambiarse con `DB_CONNECTION` y `DB_DATABASE`. En Docker se usa `storage/database.sqlite` para que el volumen persistente no oculte las migraciones.
 - Los campos dinámicos de una modalidad se guardan como un array JSON con la forma:
 
   ```json

@@ -1,0 +1,42 @@
+services:
+  eventmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: eventmanager:latest
+    restart: unless-stopped
+    ports:
+      - "${PUBLISHED_PORT:-8080}:8080"
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8080"
+      PORT: "8080"
+      APP_URL: http://localhost:${PUBLISHED_PORT:-8080}
+      FRONTEND_URL: http://localhost:${PUBLISHED_PORT:-8080}
+      DB_CONNECTION: sqlite
+      DB_DATABASE: storage/database.sqlite
+      LOG_CHANNEL: stdout
+      SESSION_SECURE_COOKIE: "false"
+      JWT_SECRET: ${JWT_SECRET:-eventmanager-compose-development-secret}
+      MAIL_DRIVER: log
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-demo}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CURRENCY: ${STRIPE_CURRENCY:-eur}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    volumes:
+      - eventmanager-storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  eventmanager-storage:
