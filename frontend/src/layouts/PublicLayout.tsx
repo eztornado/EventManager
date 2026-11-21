@@ -91,7 +91,7 @@ export function PublicLayout() {
                 </Text>
               </Box>
               <Text size="xs" c="dimmed">
-                © {new Date().getFullYear()} EventManager
+                © {new Date().getFullYear()} Event Manager - Desarrollado por Iván Pastor Simarro
               </Text>
             </Group>
           </Container>

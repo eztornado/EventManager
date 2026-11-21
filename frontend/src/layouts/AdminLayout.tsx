@@ -181,10 +181,10 @@ export function AdminLayout() {
           <Divider my="sm" />
           <Box px="xs" pb={4}>
             <Text size="xs" c="dimmed">
-              Espacio de gestión
+              EventManager
             </Text>
             <Text size="xs" c="dimmed">
-              {user.organizerName ?? 'Equipo EventManager'}
+              Desarrollado por Iván Pastor Simarro
             </Text>
           </Box>
         </AppShell.Section>
